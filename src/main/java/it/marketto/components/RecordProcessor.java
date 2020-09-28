@@ -3,10 +3,10 @@ package it.marketto.components;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.UnsupportedEncodingException;
-import java.nio.ByteBuffer;
-import java.nio.IntBuffer;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Base64;
+import java.util.List;
 import java.util.stream.Stream;
 
 import org.apache.commons.text.StringEscapeUtils;
@@ -23,6 +23,17 @@ public class RecordProcessor {
 	public RecordProcessor(RecordRepository recordRepository) {
 		this.recordRepository = recordRepository;
 	}
+
+	private String parseHeader(String field) {
+		return field.toUpperCase();
+	}
+	
+	private String parseField(String field) {
+		byte[] rawDecodedField = Base64.getDecoder().decode(field);
+		String decodedField = new String(rawDecodedField);
+		String csvUnescapedField = StringEscapeUtils.escapeCsv(decodedField);
+		return csvUnescapedField;
+	}
 	
 	@Transactional(readOnly = true)
 	public void processRecord(OutputStream outputStream) {
@@ -33,19 +44,26 @@ public class RecordProcessor {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
-
-		Stream<Object[]> recordStream = recordRepository.getAll();
 		
-		recordStream.sequential().forEach(record -> {
-			String[] dataArray = Arrays.stream(record[1].toString().split(","))
-					.map(field -> {
-						byte[] rawDecodedField = Base64.getDecoder().decode(field);
-						String decodedField = new String(rawDecodedField);
-						String csvUnescapedField = StringEscapeUtils.escapeCsv(decodedField);
-						return csvUnescapedField;
-					})
-					.toArray(String[]::new);
+		final List<String> headerArray = new ArrayList<String>();
+		
+		recordRepository.getAll()
+		.forEachOrdered(record -> {
+			long id = (long) record[0];
+			Stream<String> dataList = Arrays.stream(record[1].toString().split(","));
+
+			String[] dataArray = dataList
+				.map(field -> {
+					if (id == 0) {
+						headerArray.add(field);
+						return this.parseHeader(field);
+					} else {
+						return this.parseField(field);
+					}
+				})
+				.toArray(String[]::new);
 			String csvRow = StringUtils.arrayToDelimitedString(dataArray, ";");
+
         	byte[] byteArrayRow = null;
 			try {
 				byteArrayRow = csvRow.getBytes("UTF8");

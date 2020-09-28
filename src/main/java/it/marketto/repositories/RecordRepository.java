@@ -15,6 +15,6 @@ import it.marketto.entities.TestEntity;
 public interface RecordRepository extends Repository<TestEntity, Long> {
 	
 	@QueryHints(value = @QueryHint(name = HINT_FETCH_SIZE, value = "" + Integer.MIN_VALUE))
-	@Query("select id, concat(TO_BASE64(name), ',', TO_BASE64(city)) as data from test")
+	@Query("select id, data from test2")
 	Stream<Object[]> getAll();
 }
